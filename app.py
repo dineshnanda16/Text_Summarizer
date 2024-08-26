@@ -5,61 +5,39 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.llms import Cohere
 from langchain.chains import LLMChain
 
-class HumanMessage:
-    def __init__(self, content):
-        self.content = content
-
-class AIMessage:
-    def __init__(self, content):
-        self.content = content
-
-
+# Load environment variables
 load_dotenv()
 
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
+# Set up Streamlit page configuration
 st.set_page_config(page_title="Text Summarizer", page_icon=":memo:")
 st.title("Text Summarizer")
 
+# Initialize chat history if not present
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# Function to get summary
 def get_summary(text):
-    template = """
-    Please summarize the following text:
-
-    Text: {user_text}
-    """
-
+    template = "Please summarize the following text:\n\nText: {user_text}"
     prompt = ChatPromptTemplate.from_template(template)
-
-    llm = Cohere(cohere_api_key="r6H0r9mAApORRZgBIUJqgMT4I3EwYYpZtqOtyEKI")
-
+    llm = Cohere(cohere_api_key="YOUR_COHERE_API_KEY")
     chain = LLMChain(prompt=prompt, llm=llm)
-
     return chain.run({"user_text": text})
 
-# Initialize chat history with a default message
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = [
-        AIMessage(content="Please enter the text you would like to summarize.")
-    ]
-
+# Display chat history
 for message in st.session_state.chat_history:
-    if isinstance(message, AIMessage):
-        with st.chat_message("AI"):
-            st.write(message.content)
-    elif isinstance(message, HumanMessage):
-        with st.chat_message("Human"):
-            st.write(message.content)
+    role = "AI" if isinstance(message, AIMessage) else "Human"
+    with st.chat_message(role):
+        st.write(message.content)
 
-user_input = st.chat_input("Enter text to summarize here...")
-if user_input is not None and user_input != "":
+# User input
+user_input = st.text_area("Enter text to summarize here...", height=150)
+
+if user_input:
     st.session_state.chat_history.append(HumanMessage(content=user_input))
-
-    with st.chat_message("Human"):
-        st.markdown(user_input)
-
-    with st.chat_message("AI"):
-        summary = get_summary(user_input)
-        st.write(summary)
-
+    st.chat_message("Human").markdown(user_input)
+    
+    summary = get_summary(user_input)
+    st.chat_message("AI").write(summary)
+    
     st.session_state.chat_history.append(AIMessage(content=summary))
