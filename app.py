@@ -1,43 +1,86 @@
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_core.messages import HumanMessage
 from langchain.prompts import ChatPromptTemplate
 from langchain.llms import Cohere
 from langchain.chains import LLMChain
 
-# Load environment variables
-load_dotenv()
+# Define message classes
+class HumanMessage:
+    def __init__(self, content):
+        self.content = content
 
-# Set up Streamlit page configuration
-st.set_page_config(page_title="Text Summarizer", page_icon=":memo:")
-st.title("Text Summarizer")
+class AIMessage:
+    def __init__(self, content):
+        self.content = content
 
-# Initialize chat history if not present
+# Ensure session state is initialized
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Function to get summary
-def get_summary(text):
-    template = "Please summarize the following text:\n\nText: {user_text}"
+st.set_page_config(page_title="Text Summarizer", page_icon=":memo:")
+st.title("Text Trim")
+
+def get_summary(text, length="short", tone="neutral"):
+    template = """
+    Please summarize the following text with a {length} length and a {tone} tone:
+
+    Text: {user_text}
+
+    Also, extract keywords and analyze the sentiment of the text.
+    """
+
     prompt = ChatPromptTemplate.from_template(template)
-    llm = Cohere(cohere_api_key="YOUR_COHERE_API_KEY")
+
+    llm = Cohere(cohere_api_key="r6H0r9mAApORRZgBIUJqgMT4I3EwYYpZtqOtyEKI")
+
     chain = LLMChain(prompt=prompt, llm=llm)
-    return chain.run({"user_text": text})
 
-# Display chat history
-for message in st.session_state.chat_history:
-    role = "AI" if isinstance(message, AIMessage) else "Human"
-    with st.chat_message(role):
-        st.write(message.content)
+    return chain.run({"user_text": text, "length": length, "tone": tone})
 
-# User input
-user_input = st.text_area("Enter text to summarize here...", height=150)
+def extract_keywords(text):
+    # Placeholder implementation for keyword extraction
+    return ["keyword1", "keyword2", "keyword3"]
+
+def analyze_sentiment(text):
+    # Placeholder implementation for sentiment analysis
+    return "Positive"  # or "Negative", "Neutral"
+
+# Sidebar options
+st.sidebar.header("Customize your summary")
+length_option = st.sidebar.radio("Select summary length:", ("short", "medium", "long"))
+tone_option = st.sidebar.radio("Select summary tone:", ("neutral", "formal", "informal"))
+
+user_input = st.chat_input("Enter text to summarize here...")
 
 if user_input:
+    # Append the human message to the chat history
     st.session_state.chat_history.append(HumanMessage(content=user_input))
-    st.chat_message("Human").markdown(user_input)
-    
-    summary = get_summary(user_input)
-    st.chat_message("AI").write(summary)
-    
+
+    # Generate the summary
+    summary = get_summary(user_input, length=length_option, tone=tone_option)
+
+    # Append the AI summary to the chat history
     st.session_state.chat_history.append(AIMessage(content=summary))
+
+    # Keep only the last 5 entries in the history
+    if len(st.session_state.chat_history) > 10:
+        st.session_state.chat_history = st.session_state.chat_history[-10:]
+
+# Display the chat history (last 5 interactions)
+for message in st.session_state.chat_history:
+    if isinstance(message, AIMessage):
+        with st.chat_message("AI"):
+            st.markdown(message.content)
+    elif isinstance(message, HumanMessage):
+        with st.chat_message("Human"):
+            st.markdown(message.content)
+
+# Display extracted keywords and sentiment analysis results for the last message
+if st.session_state.chat_history:
+    last_user_input = st.session_state.chat_history[-2].content if len(st.session_state.chat_history) > 1 else None
+    last_summary = st.session_state.chat_history[-1].content if len(st.session_state.chat_history) > 0 else None
+
+    if last_user_input and last_summary:
+        with st.expander("Summary Details"):
+            st.write("**Keywords:**", extract_keywords(last_user_input))
+            st.write("**Sentiment:**", analyze_sentiment(last_user_input))
